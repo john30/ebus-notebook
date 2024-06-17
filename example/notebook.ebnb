@@ -8,11 +8,23 @@
       "outputs": []
     },
     {
-      "type": "json",
+      "type": "text",
       "source": [
-        "{\"ebusd\": \"localhost\"}"
+        ""
       ],
-      "outputs": []
+      "outputs": [
+        {
+          "application/vnd.code.notebook.stdout": [
+            "info",
+            "version: ebusd 23.3.23.3-52-gc70d8ffc",
+            "device: 192.168.0.99, TCP, enhanced, firmware 1.1[460f].1[460f]",
+            "signal: acquired",
+            "symbol rate: 15",
+            "..."
+          ]
+        }
+      ],
+      "success": true
     },
     {
       "type": "typespec",
@@ -27,12 +39,19 @@
         "}"
       ],
       "outputs": [
-        [
-          "type,circuit,level,name,comment,qq,zz,pbsb,id,*name,part,type,divisor/values,unit,comment\n*r\nr,rcc,,register0,,,75,b509,0d0000,value,,UCH,,,\n\n"
-        ],
-        [
-          "read -V -def \"r,rcc,register0,,,75,b509,0d0000,value,,UCH,,,\"\n# rcc register0 value=117"
-        ]
+        {
+          "text/csv": [
+            "type,circuit,level,name,comment,qq,zz,pbsb,id,*name,part,type,divisor/values,unit,comment",
+            "*r",
+            "r,rcc,,register0,,,75,b509,0d0000,value,,UCH,,,"
+          ]
+        },
+        {
+          "application/vnd.code.notebook.stdout": [
+            "read -V -def \"r,rcc,register0,,,75,b509,0d0000,value,,UCH,,,\"",
+            "# rcc register0 value=153"
+          ]
+        }
       ],
       "success": true
     }

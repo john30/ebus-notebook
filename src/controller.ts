@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import {executeConversion} from './task.js';
+import {executeConversion, type ShowOption} from './task.js';
 import {createConnection} from 'net';
 import {createInterface} from 'readline';
 
@@ -16,7 +16,7 @@ export class Controller {
       noteboookType,
       'eBUS Notebook'
     );
-    this.controller.supportedLanguages = ['typespec', 'json'];
+    this.controller.supportedLanguages = ['typespec', 'text'];
     this.controller.supportsExecutionOrder = true;
     this.controller.executeHandler = this.execute.bind(this);
   }
@@ -27,64 +27,52 @@ export class Controller {
 
   private async execute(
     cells: vscode.NotebookCell[],
-    notebook: vscode.NotebookDocument,
+    _notebook: vscode.NotebookDocument,
     _controller: vscode.NotebookController
   ): Promise<void> {
-    const settingsFilter = (cell: vscode.NotebookCell) => cell.kind===vscode.NotebookCellKind.Code && cell.document.languageId==='json';
-    const settingsCell = cells.find(settingsFilter) || notebook.getCells().find(settingsFilter);;
-    const settings = settingsCell && JSON.parse(settingsCell?.document.getText()||'""');
-    let ebusdHostPort: [string, number];
-    let asTerminal = typeof settings === 'object' ? settings.showTerminal?true:settings.showTerminal===false?undefined:false:false;
-    if (typeof settings === 'string' || typeof settings?.ebusd === 'string') {
-      const connStr = typeof settings === 'string' ? settings! : settings!.ebusd!;
-      const parts = connStr.split(':');
-      if (!parts[0].length) {
-        throw new Error('invalid ebusd host');
-      }
-      const ebusdPort = parts.length>1 ? parseInt(parts[1], 10) : 8888;
-      if (ebusdPort<1 || ebusdPort>65535 || isNaN(ebusdPort)) {
-        throw new Error('invalid ebusd port');
-      }
-      ebusdHostPort = [parts[0], ebusdPort];
-    }
-    if (settingsCell && cells.length===1 && cells[0] === settingsCell) {
-      // settings only => check connectivity
-      const execution = this.controller.createNotebookCellExecution(cells[0]);
-      execution.executionOrder = ++this.executionOrder;
-      execution.start(Date.now());
-      await this.appendEbusdOutput(ebusdHostPort!, execution, ['info'], true);
-      execution.end(true, Date.now());
-      return;
-    }
-    cells.filter(cell => cell !== settingsCell).forEach(cell => this.executeCell(cell, asTerminal, ebusdHostPort));
+    const ebusdCfg = vscode.workspace.getConfiguration('ebus-notebook.ebusd');
+    const ebusdHostPort: [string, number]|undefined = ebusdCfg.has('host') ? [ebusdCfg.get('host')!, ebusdCfg.get('port')||8888] : undefined;
+    const showOptionStr = vscode.workspace.getConfiguration('ebus-notebook.conversion').get('show');
+    const showOption: ShowOption|undefined = showOptionStr==='yes' ? 'terminal' : showOptionStr==='task' ? 'task' : undefined;
+    cells.forEach(cell => this.executeCell(cell, showOption, ebusdHostPort));
   }
   
-  private async executeCell(cell: vscode.NotebookCell, asTerminal?: boolean|undefined, ebusdHostPort?: [string, number]): Promise<void> {
+  private async executeCell(cell: vscode.NotebookCell, showOption?: ShowOption, ebusdHostPort?: [string, number]): Promise<void> {
     const execution = this.controller.createNotebookCellExecution(cell);
     execution.executionOrder = ++this.executionOrder;
     execution.start(Date.now());
-    let output: string = '';
-    const disposables: vscode.Disposable[] = [];
     let success = false;
-    try {
-      output = await executeConversion([cell.document.getText()], execution.token, asTerminal, disposables) || '';
+    let ebusdInput: string|undefined = undefined;
+    let isRaw = false;
+    if (cell.document.languageId==='typespec') {
+      const disposables: vscode.Disposable[] = [];
+      try {
+        ebusdInput = await executeConversion([cell.document.getText()], execution.token, showOption, disposables) || '';
+        success = true;
+      } catch (error) {
+        execution.appendOutput(
+          new vscode.NotebookCellOutput([
+            vscode.NotebookCellOutputItem.error(error as Error)
+          ]),
+        );
+      } finally {
+        disposables.forEach(d => d.dispose());
+      }
+      if (ebusdInput!==undefined) {
+        execution.replaceOutput(
+          new vscode.NotebookCellOutput([
+            vscode.NotebookCellOutputItem.text(ebusdInput, 'text/csv')
+          ])
+        );
+      }
+    } else {
+      execution.replaceOutput([]);
+      ebusdInput = cell.document.getText() || 'info';
       success = true;
-    } catch (error) {
-      execution.appendOutput(
-        new vscode.NotebookCellOutput([
-          vscode.NotebookCellOutputItem.error(error as Error)
-        ]),
-      );
-    } finally {
-      disposables.forEach(d => d.dispose());
+      isRaw = true;
     }
-    execution.replaceOutput(
-      new vscode.NotebookCellOutput([
-        vscode.NotebookCellOutputItem.text(output, 'text/csv')
-      ])
-    );
     if (ebusdHostPort) {
-      const ebusSuccess = await this.appendEbusdOutput(ebusdHostPort, execution, output.split('\n'));
+      const ebusSuccess = await this.appendEbusdOutput(ebusdHostPort, execution, ebusdInput!.split('\n'), isRaw);
       success = success && ebusSuccess;
     }
     execution.end(success, Date.now());
@@ -160,7 +148,7 @@ const sendToEbusd = async (inputLines: string[], ebusdHostPort: [string, number]
       if (line.startsWith('ERR:')) {
         throw new Error('error from ebusd: '+line);
       }
-      log('# '+line);
+      log((isRaw?'':'# ')+line);
     }
   } finally {
     try {

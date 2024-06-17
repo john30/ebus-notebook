@@ -2,7 +2,9 @@ import {readFile, unlink, writeFile} from 'fs/promises';
 import {tmpName} from 'tmp-promise';
 import * as vscode from 'vscode';
 
-export const executeConversion = async (input: string[], token: vscode.CancellationToken, asTerminal?: boolean|undefined, disposables?: vscode.Disposable[]) => {
+export type ShowOption = 'terminal'|'task';
+
+export const executeConversion = async (input: string[], token: vscode.CancellationToken, showOption?: ShowOption, disposables?: vscode.Disposable[]) => {
   const inFile = await tmpName();
   const outFile = await tmpName();
   await writeFile(inFile, input.join('\n'));
@@ -10,7 +12,7 @@ export const executeConversion = async (input: string[], token: vscode.Cancellat
     void unlink(inFile);
     void unlink(outFile);
   }}))
-  if (asTerminal===undefined) {
+  if (showOption==='task') {
     const task = await createTask(inFile, outFile);
     const taskExecution = task.execution! as TspToEbusdExecution;
     let executionInstance: vscode.TaskExecution;
@@ -27,13 +29,13 @@ export const executeConversion = async (input: string[], token: vscode.Cancellat
     executionInstance = await vscode.tasks.executeTask(task);
     return await outputPromise;
   }
-  const terminal = vscode.window.createTerminal({name: 'tsp2ebusd', hideFromUser: asTerminal===false});
+  const terminal = vscode.window.createTerminal({name: 'tsp2ebusd', hideFromUser: showOption!=='terminal'});
   disposables?.push(terminal);
   const outputPromise = new Promise<string>((res, rej) => {
     const dispose = vscode.window.onDidCloseTerminal(async t => {
       if (t!==terminal) return;
       if (t.exitStatus?.code) return rej();
-      const output = await readFile(outFile, 'utf-8');
+      const output = (await readFile(outFile, 'utf-8')).trim();
       dispose.dispose();
       res(output);
     });
@@ -43,7 +45,10 @@ export const executeConversion = async (input: string[], token: vscode.Cancellat
   return await outputPromise;
 }
 
-const conversionCmdLine = (inFile: string, outFile: string) => `npm exec --package=@ebusd/ebus-typespec tsp2ebusd -- -o ${outFile} ${inFile}`;
+const conversionCmdLine = (inFile: string, outFile: string) => {
+  const format = vscode.workspace.getConfiguration('ebus-notebook.conversion').get('cmd', 'npm exec --package=@ebusd/ebus-typespec tsp2ebusd -- -o ${outFile} ${inFile}');
+  return format.replace('${inFile}', inFile).replace('${outFile}', outFile);
+};
 
 export const createTask = async (inFile: string, outFile: string) => {
   const definition: vscode.TaskDefinition = {

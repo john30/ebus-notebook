@@ -1,7 +1,7 @@
 {
   "name": "ebus-notebook",
   "displayName": "ebus-notebook",
-  "description": "eBUS notebook",
+  "description": "eBUS Notebook",
   "version": "0.1.0",
   "license": "MIT",
   "categories": [
@@ -16,14 +16,49 @@
     "notebooks": [
       {
         "type": "ebus-notebook",
-        "displayName": "eBUS notebook",
+        "displayName": "eBUS Notebook",
         "selector": [
           {
             "filenamePattern": "*.ebnb"
           }
         ]
       }
-    ]
+    ],
+    "configuration": {
+			"type": "object",
+			"title": "eBUS Notebook Configuration",
+			"properties": {
+				"ebus-notebook.conversion.show": {
+					"scope": "window",
+					"type": "string",
+					"default": "no",
+          "enum": [
+            "no",
+            "yes",
+            "task"
+          ],
+					"description": "Whether to show the conversion process terminal or use a task instead of a terminal."
+				},
+        "ebus-notebook.conversion.cmd": {
+          "scope": "window",
+          "type": "string",
+          "default": "npm exec --package=@ebusd/ebus-typespec tsp2ebusd -- -o ${outFile} ${inFile}",
+          "description": "The command to use for converting TypeSpec to ebusd CSV."
+        },
+				"ebus-notebook.ebusd.host": {
+					"scope": "window",
+					"type": "string",
+					"description": "The host name or IP address of ebusd REPL to connect to."
+				},
+				"ebus-notebook.ebusd.port": {
+					"scope": "window",
+					"type": "number",
+					"default": 8888,
+					"description": "The port number of ebusd REPL to connecto to."
+				}
+			}
+		}
+
   },
   "scripts": {
     "clean": "rimraf ./dist ./temp",
