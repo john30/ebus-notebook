@@ -1,0 +1,40 @@
+{
+  "cells": [
+    {
+      "type": "markdown",
+      "source": [
+        "## RCC messages"
+      ],
+      "outputs": []
+    },
+    {
+      "type": "json",
+      "source": [
+        "{\"ebusd\": \"localhost\"}"
+      ],
+      "outputs": []
+    },
+    {
+      "type": "typespec",
+      "source": [
+        "using Ebus;",
+        "@zz(0x75)",
+        "namespace rcc {",
+        "  @id(0xb5,0x09,0x0d,0,0)",
+        "  model register0 {",
+        "    value: num.UCH,",
+        "  }",
+        "}"
+      ],
+      "outputs": [
+        [
+          "type,circuit,level,name,comment,qq,zz,pbsb,id,*name,part,type,divisor/values,unit,comment\n*r\nr,rcc,,register0,,,75,b509,0d0000,value,,UCH,,,\n\n"
+        ],
+        [
+          "read -V -def \"r,rcc,register0,,,75,b509,0d0000,value,,UCH,,,\"\n# rcc register0 value=117"
+        ]
+      ],
+      "success": true
+    }
+  ]
+}

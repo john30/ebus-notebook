@@ -1,0 +1,55 @@
+{
+  "name": "ebus-notebook",
+  "displayName": "ebus-notebook",
+  "description": "eBUS notebook",
+  "version": "0.1.0",
+  "license": "MIT",
+  "categories": [
+    "Other"
+  ],
+  "type": "module",
+  "main": "./dist/src/extension.cjs",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "contributes": {
+    "notebooks": [
+      {
+        "type": "ebus-notebook",
+        "displayName": "eBUS notebook",
+        "selector": [
+          {
+            "filenamePattern": "*.ebnb"
+          }
+        ]
+      }
+    ]
+  },
+  "scripts": {
+    "clean": "rimraf ./dist ./temp",
+    "build": "npm run compile && npm run package-vsix",
+    "compile": "rollup --config rollup.config.ts --configPlugin typescript --failAfterWarnings 2>&1",
+    "watch": "rollup --config rollup.config.ts --configPlugin typescript --watch",
+    "package-vsix": "vsce package",
+    "deploy": "vsce publish"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "~25.0.7",
+    "@rollup/plugin-json": "~6.1.0",
+    "@rollup/plugin-node-resolve": "~15.2.3",
+    "@rollup/plugin-typescript": "~11.1.6",
+    "@types/node": "~18.11.19",
+    "@types/tmp": "^0.2.6",
+    "@types/vscode": "~1.90.0",
+    "rimraf": "~5.0.7",
+    "rollup": "~4.17.2",
+    "tslib": "^2.6.3",
+    "typescript": "~5.4.5"
+  },
+  "dependencies": {
+    "@ebusd/ebus-typespec": "^0.1.0",
+    "@typespec/compiler": "^0.56.0",
+    "tmp": "^0.2.3",
+    "tmp-promise": "^3.0.3"
+  }
+}
