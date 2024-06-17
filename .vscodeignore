@@ -3,8 +3,11 @@
 src/**
 .gitignore
 .yarnrc
-**/tsconfig.json
+esbuild.js
+**/tsconfig*.json
 **/.eslintrc.json
 **/*.map
 **/*.ts
 **/.vscode-test.*
+.tmp
+test*

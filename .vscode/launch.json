@@ -11,7 +11,7 @@
         "${workspaceFolder}/testws"
 			],
 			"outFiles": [
-				"${workspaceFolder}/dist/**/*.cjs"
+				"${workspaceFolder}/dist/**/*.js"
 			],
 			"preLaunchTask": "${defaultBuildTask}"
 		},
