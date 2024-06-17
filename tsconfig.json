@@ -10,5 +10,5 @@
     "outDir": "dist",
     "rootDir": "."
   },
-  "include": ["rollup.config.ts", "src/**/*.ts"]
+  "include": ["src/**/*.ts"]
 }
