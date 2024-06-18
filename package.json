@@ -31,6 +31,11 @@
       {
         "command": "ebus-notebook.createNotebook",
         "title": "Create New eBUS Notebook"
+      },
+      {
+        "command": "ebus-notebook.uploadEbusd",
+        "title": "Upload CSV to ebusd",
+        "enablement": "false"
       }
     ],
     "notebooks": [

@@ -11,7 +11,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		const doc = await vscode.workspace.openNotebookDocument('ebus-notebook', data);
 		await vscode.window.showNotebookDocument(doc);
 	}));
-  context.subscriptions.push(new Controller());
+  context.subscriptions.push(new Controller(context));
 }
 
 export function deactivate() {}
