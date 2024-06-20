@@ -109,7 +109,7 @@ export class Controller implements vscode.NotebookCellStatusBarItemProvider {
       } catch (error) {
         execution.appendOutput(
           new vscode.NotebookCellOutput([
-            vscode.NotebookCellOutputItem.error(error as Error)
+            vscode.NotebookCellOutputItem.error(error instanceof Error ? error : new Error(error as string))
           ]),
         );
       } finally {
@@ -128,7 +128,7 @@ export class Controller implements vscode.NotebookCellStatusBarItemProvider {
       success = true;
       isRaw = true;
     }
-    if (this.ebusdHostPort) {
+    if (ebusdInput && this.ebusdHostPort) {
       const ebusSuccess = await this.appendEbusdOutput(this.ebusdHostPort, execution, ebusdInput!.split('\n'), isRaw);
       success = success && ebusSuccess;
     }

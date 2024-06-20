@@ -34,7 +34,10 @@ export const executeConversion = async (input: string[], token: vscode.Cancellat
   const outputPromise = new Promise<string>((res, rej) => {
     const dispose = vscode.window.onDidCloseTerminal(async t => {
       if (t!==terminal) return;
-      if (t.exitStatus?.code) return rej();
+      if (t.exitStatus?.code) {
+        dispose.dispose();
+        return rej(`exited with code ${t.exitStatus?.code}: ${t.exitStatus.reason}`);
+      }
       const output = (await readFile(outFile, 'utf-8')).trim();
       dispose.dispose();
       res(output);
