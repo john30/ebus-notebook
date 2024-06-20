@@ -101,6 +101,7 @@ export class Controller implements vscode.NotebookCellStatusBarItemProvider {
     let success = false;
     let ebusdInput: string|undefined = undefined;
     let isRaw = false;
+    execution.replaceOutput([]);
     if (cell.document.languageId==='typespec') {
       const disposables: vscode.Disposable[] = [];
       try {
@@ -116,14 +117,13 @@ export class Controller implements vscode.NotebookCellStatusBarItemProvider {
         disposables.forEach(d => d.dispose());
       }
       if (ebusdInput!==undefined) {
-        execution.replaceOutput(
+        execution.appendOutput(
           new vscode.NotebookCellOutput([
             vscode.NotebookCellOutputItem.text(ebusdInput, 'text/csv')
           ])
         );
       }
     } else {
-      execution.replaceOutput([]);
       ebusdInput = cell.document.getText() || 'info';
       success = true;
       isRaw = true;
