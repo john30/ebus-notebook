@@ -2,6 +2,7 @@
   "name": "ebus-notebook",
   "displayName": "ebus-notebook",
   "description": "eBUS Notebook",
+  "publisher": "ebusd",
   "version": "0.1.0",
   "license": "MIT",
   "repository": {
