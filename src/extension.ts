@@ -1,9 +1,13 @@
 import * as vscode from 'vscode';
-import {Serializer} from './serializer.js';
 import {Controller} from './controller.js';
+import {Serializer} from './serializer.js';
+import {executeConversion} from './task.js';
 
 const CMD_CREATE_FILE = 'ebus-notebook.createFile';
 const CMD_CREATE_NOTEBOOK = 'ebus-notebook.createNotebook';
+const CMD_CONVERT = 'ebus-notebook.convert';
+
+const outputChannel = vscode.window.createOutputChannel('eBUS Notebook');
 
 export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
@@ -27,12 +31,32 @@ export async function activate(context: vscode.ExtensionContext) {
     ]).join('\n');
 		const doc = await vscode.workspace.openTextDocument({language: 'typespec', content});
 		await vscode.window.showTextDocument(doc);
+    outputChannel.appendLine('created eBUS TypeSpec file');
 	}));
   context.subscriptions.push(vscode.commands.registerCommand(CMD_CREATE_NOTEBOOK, async (...args: any[]) => {
     const src = args?.length===1 ? `${args[0]}` : '';
 		const data = new vscode.NotebookData([new vscode.NotebookCellData(vscode.NotebookCellKind.Code, src, 'typespec')]);
 		const doc = await vscode.workspace.openNotebookDocument('ebus-notebook', data);
 		await vscode.window.showNotebookDocument(doc);
+    outputChannel.appendLine('created eBUS notebook');
+	}));
+  context.subscriptions.push(vscode.commands.registerCommand(CMD_CONVERT, async (...args: any[]) => {
+    const src = args?.length===1 ? `${args[0]}` : '';
+    const disposables: vscode.Disposable[] = [];
+    vscode.window.withProgress({location: vscode.ProgressLocation.Notification, title: 'Converting', cancellable: true}, async (progress, token) => {
+      try {
+        const output = await executeConversion([src], token, undefined, disposables) || '';
+        outputChannel.appendLine('conversion result:');
+        outputChannel.show();
+        outputChannel.append(output);
+      } catch (error) {
+        outputChannel.append('conversion error:');
+        outputChannel.show();
+        outputChannel.append(`${error}`);
+      } finally {
+        disposables.forEach(d => d.dispose());
+      }
+    });
 	}));
   context.subscriptions.push(new Controller(context));
   context.subscriptions.push(vscode.languages.registerCodeActionsProvider({language: 'typespec'}, new CodeActionProvider(), {providedCodeActionKinds: [vscode.CodeActionKind.Empty]}));
@@ -52,9 +76,12 @@ class CodeActionProvider implements vscode.CodeActionProvider<vscode.CodeAction>
     }
     const txt = document.getText(sym.location.range);
     const notebookAction = new vscode.CodeAction('Create eBUS Notebook from this...', vscode.CodeActionKind.Empty);
-    notebookAction.command = {command: CMD_CREATE_NOTEBOOK, title: 'Create eBUS Notebook', tooltip: 'Creates an eBUS Notebook from this symbol.', arguments: [txt]};
+    notebookAction.command = {command: CMD_CREATE_NOTEBOOK, title: 'Create eBUS Notebook', tooltip: 'Creates an eBUS Notebook from this.', arguments: [txt]};
+    const convertAction = new vscode.CodeAction('Convert to eBUS CSV...', vscode.CodeActionKind.Empty);
+    convertAction.command = {command: CMD_CONVERT, title: 'Convert eBUS CSV', tooltip: 'Converts file to eBUS CSV.', arguments: [txt]};
     return [
       notebookAction,
+      convertAction,
     ];
   }
 }

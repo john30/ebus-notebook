@@ -1,8 +1,9 @@
 {
   "name": "ebus-notebook",
   "displayName": "ebus-notebook",
-  "description": "eBUS Notebook",
+  "description": "Notebook for eBUS activities using ebus-typespec and an optional ebusd instance.",
   "publisher": "ebusd",
+  "icon": "images/icon.png",
   "version": "0.1.0",
   "license": "MIT",
   "repository": {
@@ -46,6 +47,10 @@
       {
         "command": "ebus-notebook.createNotebook",
         "title": "Create New eBUS Notebook"
+      },
+      {
+        "command": "ebus-notebook.convert",
+        "title": "Convert eBUS TypeSpec to ebusd CSV"
       },
       {
         "command": "ebus-notebook.uploadEbusd",
