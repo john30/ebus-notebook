@@ -1,6 +1,6 @@
 # eBUS Notebook
 
-A VS Code extension providing a notebook for eBUS activities using ebus-typespec and an optional ebusd connection.
+A VS Code extension providing a notebook for eBUS activities using ebus-typespec and an optional ebusd connection, as well as some commands and code actions.
 
 ## Features
 

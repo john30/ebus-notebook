@@ -27,8 +27,15 @@
   "activationEvents": [
     "onStartupFinished"
   ],
+  "capabilities": {
+    "codeActionProvider": "true"
+  },
   "contributes": {
     "commands": [
+      {
+        "command": "ebus-notebook.createFile",
+        "title": "Create New eBUS TypeSpec file from Template"
+      },
       {
         "command": "ebus-notebook.createNotebook",
         "title": "Create New eBUS Notebook"

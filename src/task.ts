@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 
 export type ShowOption = 'terminal'|'task';
 
-export const executeConversion = async (input: string[], token: vscode.CancellationToken, showOption?: ShowOption, disposables?: vscode.Disposable[]) => {
+export const executeConversion = async (input: string[], token?: vscode.CancellationToken, showOption?: ShowOption, disposables?: vscode.Disposable[]) => {
   const inFile = await tmpName();
   const outFile = await tmpName();
   await writeFile(inFile, input.join('\n'));
@@ -37,7 +37,7 @@ export const executeConversion = async (input: string[], token: vscode.Cancellat
     const task = await createTask(inFile, outFile);
     let executionInstance: vscode.TaskExecution;
     const outputPromise = new Promise<string>((res, rej) => {
-      token.onCancellationRequested(() => {
+      token?.onCancellationRequested(() => {
         executionInstance.terminate();
         rej('cancelled');
       });
@@ -54,7 +54,7 @@ export const executeConversion = async (input: string[], token: vscode.Cancellat
   const terminal = vscode.window.createTerminal({name: 'tsp2ebusd', hideFromUser: showOption!=='terminal'});
   disposables?.push(terminal);
   const outputPromise = new Promise<string>((res, rej) => {
-    token.onCancellationRequested(() => {
+    token?.onCancellationRequested(() => {
       terminal.dispose();
       rej('cancelled');
     });
