@@ -7,7 +7,16 @@ export type ShowOption = 'terminal'|'task';
 export const executeConversion = async (input: string[], token?: vscode.CancellationToken, showOption?: ShowOption, disposables?: vscode.Disposable[]) => {
   const inFile = await tmpName();
   const outFile = await tmpName();
-  await writeFile(inFile, input.join('\n'));
+  const enhancedInput = [...input];
+  enhancedInput.find((line, idx) => {
+    line = line.trim();
+    if (!line || line.startsWith('//') || line.startsWith('import ') || line.startsWith('using ')) {
+      return; // continue
+    }
+    enhancedInput.splice(idx, 0, 'using Ebus;');
+    return true; // give up
+  });
+  await writeFile(inFile, enhancedInput.join('\n'));
   disposables?.push(vscode.Disposable.from({dispose: () => {
     void unlink(inFile);
     void unlink(outFile);
