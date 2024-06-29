@@ -10,6 +10,7 @@ export class Controller implements vscode.NotebookCellStatusBarItemProvider {
   private executionOrder = 0;
   private showOption?: ShowOption;
   private ebusdHostPort?: [string, number];
+  private readCmd?: string;
 
   constructor(context: vscode.ExtensionContext, private outputChannel: vscode.OutputChannel) {
     const noteboookType = 'ebus-notebook';
@@ -27,6 +28,10 @@ export class Controller implements vscode.NotebookCellStatusBarItemProvider {
       this.showOption = showOptionStr==='yes' ? 'terminal' : showOptionStr==='task' ? 'task' : undefined;
       const ebusdCfg = vscode.workspace.getConfiguration('ebus-notebook.ebusd');
       this.ebusdHostPort = ebusdCfg.has('host') ? [ebusdCfg.get('host')!, ebusdCfg.get('port')||8888] : undefined;
+      this.readCmd = ebusdCfg.has('read') ? ebusdCfg.get('read') : undefined;
+      if (this.readCmd==='raw' || this.readCmd==='upload') {
+        this.readCmd = undefined;
+      }
     };
     updateConfig();
     this.disposables.push(vscode.workspace.onDidChangeConfiguration(e => e.affectsConfiguration('ebus-notebook') && updateConfig()));
@@ -137,11 +142,19 @@ export class Controller implements vscode.NotebookCellStatusBarItemProvider {
 
   private async appendEbusdOutput(ebusdHostPort: [string, number], execution: vscode.NotebookCellExecution, lines: string[], isRaw = false): Promise<boolean> {
     const outLines: string[] = [];
+    let input: string|undefined;
+    if (!isRaw && this.readCmd?.includes('${input}')) {
+      // assume user input is needed
+      input = await vscode.window.showInputBox({title: 'Provide additional command input', placeHolder: 'multiple fields separated by semicolon'});
+      if (input === undefined) {
+        return false; // no input given
+      }
+    }
     try {
       await sendToEbusd(lines, ebusdHostPort, (...args) => {
         this.outputChannel.appendLine(args.join(' '));
         outLines.push(args.join(' '));
-      }, isRaw?'raw':undefined);
+      }, isRaw?'raw':this.readCmd, input);
       execution.appendOutput(
         new vscode.NotebookCellOutput([
           vscode.NotebookCellOutputItem.stdout(outLines.join('\n'))
@@ -159,10 +172,9 @@ export class Controller implements vscode.NotebookCellStatusBarItemProvider {
   }
 }
 
-const sendToEbusd = async (inputLines: string[], ebusdHostPort: [string, number], log: (...args: any[]) => void, mode?: 'raw'|'upload') => {
-  // find the relevant line(s) from the output
+const filterEbusdLines = (inputLines: string[]) => {
   let removeLevel: boolean|undefined=undefined;
-  const lines=mode==='raw' ? inputLines : inputLines.filter(line => {
+  return inputLines.filter(line => {
     if (removeLevel===undefined) {
       removeLevel=line.includes(',level,');
       return;
@@ -174,7 +186,18 @@ const sendToEbusd = async (inputLines: string[], ebusdHostPort: [string, number]
     const parts=line.split(',');
     parts.splice(2, 1);
     return parts.join(',');
-  }).map(line => mode==='upload' ? `define -r "${line}"` : `read -V -def "${line}"`);
+  });
+};
+
+const sendToEbusd = async (inputLines: string[], ebusdHostPort: [string, number], log: (...args: any[]) => void, modeOrFmt?: 'raw'|'upload'|string, input?: string) => {
+  let lines: string[];
+  if (modeOrFmt==='raw') {
+    lines = inputLines;
+  } else {
+    const format = modeOrFmt==='upload'?'define -r "${line}"':(modeOrFmt||'read -V -V -def -def "${line}"');
+    // filter the relevant line(s) from the conversion output
+    lines = filterEbusdLines(inputLines).map(line => format.replace('${line}', line).replace('${input}', input||''));
+  }
   if (!lines.length) {
     throw new Error('no usable input');
   }
@@ -191,13 +214,14 @@ const sendToEbusd = async (inputLines: string[], ebusdHostPort: [string, number]
         return;
       }
       timer=setTimeout(() => conn.destroy(), 3000);
-      if (mode!=='upload') {
+      if (modeOrFmt!=='upload') {
         log(line);
       }
       conn.write(line+'\n');
       return true;
     };
     send();
+    const logDirect = modeOrFmt==='raw' || modeOrFmt==='upload';
     for await (const line of createInterface(conn)) {
       if (!line) {
         if (!send()) {
@@ -208,7 +232,7 @@ const sendToEbusd = async (inputLines: string[], ebusdHostPort: [string, number]
       if (line.startsWith('ERR:')) {
         throw new Error('error from ebusd: '+line);
       }
-      log((mode?'':'# ')+line);
+      log((logDirect?'':'# ')+line);
     }
   } finally {
     try {

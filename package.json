@@ -100,6 +100,12 @@
           "type": "number",
           "default": 8888,
           "description": "The port number of ebusd REPL to connecto to."
+        },
+        "ebus-notebook.ebusd.read": {
+          "scope": "window",
+          "type": "string",
+          "default": "read -V -V -def -def \"${line}\"",
+          "description": "The command to use for issuing a read of a generated definition."
         }
       }
     }
