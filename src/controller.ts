@@ -11,7 +11,7 @@ export class Controller implements vscode.NotebookCellStatusBarItemProvider {
   private showOption?: ShowOption;
   private ebusdHostPort?: [string, number];
 
-  constructor(context: vscode.ExtensionContext) {
+  constructor(context: vscode.ExtensionContext, private outputChannel: vscode.OutputChannel) {
     const noteboookType = 'ebus-notebook';
     this.controller = vscode.notebooks.createNotebookController(
       'ebus-notebook-controller-id',
@@ -139,6 +139,7 @@ export class Controller implements vscode.NotebookCellStatusBarItemProvider {
     const outLines: string[] = [];
     try {
       await sendToEbusd(lines, ebusdHostPort, (...args) => {
+        this.outputChannel.appendLine(args.join(' '));
         outLines.push(args.join(' '));
       }, isRaw?'raw':undefined);
       execution.appendOutput(

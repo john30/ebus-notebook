@@ -58,7 +58,7 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     });
 	}));
-  context.subscriptions.push(new Controller(context));
+  context.subscriptions.push(new Controller(context, outputChannel));
   context.subscriptions.push(vscode.languages.registerCodeActionsProvider({language: 'typespec'}, new CodeActionProvider(), {providedCodeActionKinds: [vscode.CodeActionKind.Empty]}));
 }
 
