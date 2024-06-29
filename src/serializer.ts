@@ -32,7 +32,7 @@ export class Serializer implements vscode.NotebookSerializer {
           : vscode.NotebookCellKind.Code,
         item.source.join('\n'),
         item.type==='typespec' ? 'typespec'
-          : item.type==='text' ? 'text' : 'markdown',
+          : item.type==='text' ? 'plaintext' : 'markdown',
       );
       if (item.outputs?.length) {
         data.outputs = item.outputs.map(o => new vscode.NotebookCellOutput(Object.entries(o).map(([m,l]) =>

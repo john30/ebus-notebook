@@ -19,7 +19,7 @@ export class Controller implements vscode.NotebookCellStatusBarItemProvider {
       'eBUS Notebook'
     );
     this.disposables.push(vscode.notebooks.registerNotebookCellStatusBarItemProvider(noteboookType, this));
-    this.controller.supportedLanguages = ['typespec', 'text'];
+    this.controller.supportedLanguages = ['typespec', 'plaintext'];
     this.controller.supportsExecutionOrder = true;
     this.controller.executeHandler = this.execute.bind(this);
     const updateConfig = () => {
