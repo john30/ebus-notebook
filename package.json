@@ -74,6 +74,7 @@
       "title": "eBUS Notebook",
       "properties": {
         "ebus-notebook.conversion.show": {
+          "title": "Conversion Visibility",
           "scope": "window",
           "type": "string",
           "default": "no",
@@ -82,30 +83,39 @@
             "yes",
             "task"
           ],
-          "description": "Whether to show the conversion process terminal or use a task instead of a terminal."
+          "description": "Whether to show the conversion process terminal or use a task instead of a terminal.",
+          "order": 1
         },
         "ebus-notebook.conversion.cmd": {
+          "title": "Conversion Command",
           "scope": "window",
           "type": "string",
           "default": "npm exec --package=@ebusd/ebus-typespec tsp2ebusd -- -o ${outFile} ${inFile}",
-          "description": "The command to use for converting TypeSpec to ebusd CSV."
+          "description": "The command to use for converting TypeSpec to ebusd CSV.",
+          "order": 2
         },
         "ebus-notebook.ebusd.host": {
+          "title": "ebusd REPL Host",
           "scope": "window",
           "type": "string",
-          "description": "The host name or IP address of ebusd REPL to connect to."
+          "description": "The host name or IP address of ebusd REPL to connect to.",
+          "order": 3
         },
         "ebus-notebook.ebusd.port": {
+          "title": "ebusd REPL Port",
           "scope": "window",
           "type": "number",
           "default": 8888,
-          "description": "The port number of ebusd REPL to connecto to."
+          "description": "The port number of ebusd REPL to connecto to.",
+          "order": 4
         },
         "ebus-notebook.ebusd.read": {
+          "title": "ebusd read Command",
           "scope": "window",
           "type": "string",
           "default": "read -V -V -def -def \"${line}\"",
-          "description": "The command to use for issuing a read of a generated definition."
+          "description": "The command to use for issuing a read of a generated definition.",
+          "order": 5
         }
       }
     }
