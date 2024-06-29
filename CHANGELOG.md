@@ -10,3 +10,9 @@ All notable changes to the "ebus-notebook" extension will be documented in this 
 ## [0.2.0]
 
 - Add more commands, output channel, docs
+
+
+## [0.3.0]
+
+- Fix support for plaintext blocks
+- Add configuration for ebusd read command and support optional input
