@@ -16,3 +16,9 @@ All notable changes to the "ebus-notebook" extension will be documented in this 
 
 - Fix support for plaintext blocks
 - Add configuration for ebusd read command and support optional input
+
+
+## [0.4.0]
+
+- Add toggle for user input to notebook
+- Add code actions for running selected model and copying to notebook to source editor

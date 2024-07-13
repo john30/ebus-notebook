@@ -4,7 +4,7 @@
   "description": "Notebook for eBUS activities using ebus-typespec and an optional ebusd instance.",
   "publisher": "ebusd",
   "icon": "images/icon.png",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -53,8 +53,17 @@
         "title": "Convert eBUS TypeSpec to ebusd CSV"
       },
       {
+        "command": "ebus-notebook.convertAndTest",
+        "title": "Convert eBUS TypeSpec and test on ebusd"
+      },
+      {
         "command": "ebus-notebook.uploadEbusd",
         "title": "Upload CSV to ebusd",
+        "enablement": "false"
+      },
+      {
+        "command": "ebus-notebook.uploadEbusdToggleInput",
+        "title": "Toggle query for user input on upload CSV to ebusd",
         "enablement": "false"
       }
     ],
@@ -113,8 +122,8 @@
           "title": "ebusd read Command",
           "scope": "window",
           "type": "string",
-          "default": "read -V -V -def -def \"${line}\"",
-          "markdownDescription": "The command to use for issuing a read of a generated definition. If input to e.g. write command is supposed to be tested, `-i \"${input}\"` can be added to allow entering the input in a dialog before execution, see [read command](https://github.com/john30/ebusd/wiki/3.1.-TCP-client-commands#read).",
+          "default": "read -V -V -def -def -i \"${input}\" \"${line}\"",
+          "markdownDescription": "The command to use for issuing a read of a generated definition. User input is asked for when convert+test command is issued with '-i' as first argument. See [read command](https://github.com/john30/ebusd/wiki/3.1.-TCP-client-commands#read).",
           "order": 5
         }
       }

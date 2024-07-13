@@ -33,23 +33,25 @@
         "@zz(0x75)",
         "namespace rcc {",
         "  @id(0xb5,0x09,0x0d,0,0)",
+        "  @example(\"Rcc Register0 [b5090d0000/a50100] value=[a5]165\", \"b5090d0000\", \"a50100\")",
         "  model register0 {",
-        "    value: num.UCH,",
+        "    value: Num.UCH,",
         "  }",
-        "}"
+        "}",
+        ""
       ],
       "outputs": [
         {
           "text/csv": [
             "type,circuit,level,name,comment,qq,zz,pbsb,id,*name,part,type,divisor/values,unit,comment",
-            "*r",
-            "r,rcc,,register0,,,75,b509,0d0000,value,,UCH,,,"
+            "*r,",
+            "r,Rcc,,Register0,,,75,b509,0d0000,value,,UCH,,,"
           ]
         },
         {
           "application/vnd.code.notebook.stdout": [
-            "read -V -def \"r,rcc,register0,,,75,b509,0d0000,value,,UCH,,,\"",
-            "# rcc register0 value=153"
+            "read -V -V -def -def -i \"\" \"r,Rcc,Register0,,,75,b509,0d0000,value,,UCH,,,\"",
+            "# Rcc Register0 [b5090d0000/a50100] value=[a5]165"
           ]
         }
       ],

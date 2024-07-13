@@ -1,16 +1,18 @@
-import * as vscode from 'vscode';
-import {executeConversion, type ShowOption} from './task.js';
 import {createConnection} from 'net';
 import {createInterface} from 'readline';
+import * as vscode from 'vscode';
+import {executeConversion, type ShowOption} from './task.js';
 
 
 export class Controller implements vscode.NotebookCellStatusBarItemProvider {
+  public ebusdHostPort?: [string, number];
+  public readCmd?: string;
   private readonly controller: vscode.NotebookController;
   private disposables: vscode.Disposable[] = [];
   private executionOrder = 0;
   private showOption?: ShowOption;
-  private ebusdHostPort?: [string, number];
-  private readCmd?: string;
+  private queryInput = false;
+  readonly onDidChangeCellStatusBarItems: vscode.Event<void>;
 
   constructor(context: vscode.ExtensionContext, private outputChannel: vscode.OutputChannel) {
     const noteboookType = 'ebus-notebook';
@@ -19,6 +21,9 @@ export class Controller implements vscode.NotebookCellStatusBarItemProvider {
       noteboookType,
       'eBUS Notebook'
     );
+    const eventEmitter = new vscode.EventEmitter<void>();
+    context.subscriptions.push(eventEmitter);
+    this.onDidChangeCellStatusBarItems = eventEmitter.event;
     this.disposables.push(vscode.notebooks.registerNotebookCellStatusBarItemProvider(noteboookType, this));
     this.controller.supportedLanguages = ['typespec', 'plaintext'];
     this.controller.supportsExecutionOrder = true;
@@ -66,7 +71,10 @@ export class Controller implements vscode.NotebookCellStatusBarItemProvider {
         await vscode.window.showErrorMessage('Error saving to ebusd: '+e);
       }
     }));
-  
+    context.subscriptions.push(vscode.commands.registerCommand('ebus-notebook.uploadEbusdToggleInput', () => {
+      this.queryInput = !this.queryInput;
+      eventEmitter.fire();
+    }));
   }
 
   dispose(): void {
@@ -75,20 +83,32 @@ export class Controller implements vscode.NotebookCellStatusBarItemProvider {
 
   provideCellStatusBarItems(cell: vscode.NotebookCell, token: vscode.CancellationToken): vscode.ProviderResult<vscode.NotebookCellStatusBarItem | vscode.NotebookCellStatusBarItem[]> {
     if (cell.kind!==vscode.NotebookCellKind.Code || cell.document.languageId!=='typespec'
-      || !cell.executionSummary?.success || !this.ebusdHostPort
+      || !this.ebusdHostPort
     ) {
       return;
     }
-    const item = new vscode.NotebookCellStatusBarItem('Upload to ebusd', vscode.NotebookCellStatusBarAlignment.Left);
-    const tooltip = 'Directly upload the CSV to ebusd so that it gets effective immediately.';
-    item.tooltip = tooltip;
-    item.command = {
-      command: 'ebus-notebook.uploadEbusd',
-      title: 'upload',
+    let upload;
+    if (cell.executionSummary?.success) {
+      upload = new vscode.NotebookCellStatusBarItem('Upload to ebusd', vscode.NotebookCellStatusBarAlignment.Left);
+      const tooltip = 'Directly upload the CSV to ebusd so that it gets effective immediately.';
+      upload.tooltip = tooltip;
+      upload.command = {
+        command: 'ebus-notebook.uploadEbusd',
+        title: 'upload',
+        tooltip,
+        arguments: cell.outputs.find(o => o.items.some(i => i.mime==='text/csv'))?.items,
+      };
+    }
+    const toggleInput = new vscode.NotebookCellStatusBarItem('Query user input: '+(this.queryInput?'On':'Off'), vscode.NotebookCellStatusBarAlignment.Left);
+    const tooltip='Toggle query for user input.';
+    toggleInput.tooltip = tooltip;
+    toggleInput.command = {
+      command: 'ebus-notebook.uploadEbusdToggleInput',
+      title: 'toggle input',
       tooltip,
       arguments: cell.outputs.find(o => o.items.some(i => i.mime==='text/csv'))?.items,
     };
-    return item;
+    return upload ? [upload, toggleInput] : toggleInput;
   }
 
   private async execute(
@@ -142,19 +162,14 @@ export class Controller implements vscode.NotebookCellStatusBarItemProvider {
 
   private async appendEbusdOutput(ebusdHostPort: [string, number], execution: vscode.NotebookCellExecution, lines: string[], isRaw = false): Promise<boolean> {
     const outLines: string[] = [];
-    let input: string|undefined;
-    if (!isRaw && this.readCmd?.includes('${input}')) {
-      // assume user input is needed
-      input = await vscode.window.showInputBox({title: 'Provide additional command input', placeHolder: 'multiple fields separated by semicolon'});
-      if (input === undefined) {
-        return false; // no input given
-      }
-    }
     try {
-      await sendToEbusd(lines, ebusdHostPort, (...args) => {
+      const executed = await sendToEbusd(lines, ebusdHostPort, (...args) => {
         this.outputChannel.appendLine(args.join(' '));
         outLines.push(args.join(' '));
-      }, isRaw?'raw':this.readCmd, input);
+      }, isRaw?'raw':this.readCmd, this.queryInput ? execution.token : undefined);
+      if (!executed) {
+        return false;
+      }
       execution.appendOutput(
         new vscode.NotebookCellOutput([
           vscode.NotebookCellOutputItem.stdout(outLines.join('\n'))
@@ -189,12 +204,30 @@ const filterEbusdLines = (inputLines: string[]) => {
   });
 };
 
-const sendToEbusd = async (inputLines: string[], ebusdHostPort: [string, number], log: (...args: any[]) => void, modeOrFmt?: 'raw'|'upload'|string, input?: string) => {
+export const sendToEbusd = async (
+  inputLines: string[],
+  ebusdHostPort: [string, number],
+  log: (...args: any[]) => void,
+  modeOrFmt?: 'raw'|'upload'|string,
+  checkInputToken?: vscode.CancellationToken,
+): Promise<boolean> => {
   let lines: string[];
   if (modeOrFmt==='raw') {
     lines = inputLines;
   } else {
-    const format = modeOrFmt==='upload'?'define -r "${line}"':(modeOrFmt||'read -V -V -def -def "${line}"');
+    const format = modeOrFmt==='upload'?'define -r "${line}"':(modeOrFmt||'read -V -V -def -def -i "${input}" "${line}"');
+    let input: string|undefined = '';
+    if (checkInputToken && format.includes('${input}')) {
+      // user input is needed
+      input = await vscode.window.showInputBox({
+        title: 'Provide additional command input',
+        placeHolder: 'multiple fields separated by semicolon',
+        ignoreFocusOut: true, // needed as otherwise the task view opening asynchronously automatically closes it
+      }, checkInputToken);
+      if (input === undefined) {
+        return false; // no input given
+      }
+    }
     // filter the relevant line(s) from the conversion output
     lines = filterEbusdLines(inputLines).map(line => format.replace('${line}', line).replace('${input}', input||''));
   }
@@ -234,6 +267,7 @@ const sendToEbusd = async (inputLines: string[], ebusdHostPort: [string, number]
       }
       log((logDirect?'':'# ')+line);
     }
+    return true;
   } finally {
     try {
       conn.write('\x04');
