@@ -22,3 +22,8 @@ All notable changes to the "ebus-notebook" extension will be documented in this 
 
 - Add toggle for user input to notebook
 - Add code actions for running selected model and copying to notebook to source editor
+
+
+## [0.5.0]
+
+- Fix for resolve issues with tsp with model in subdirectory

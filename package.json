@@ -4,7 +4,7 @@
   "description": "Notebook for eBUS activities using ebus-typespec and an optional ebusd instance.",
   "publisher": "ebusd",
   "icon": "images/icon.png",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "license": "MIT",
   "repository": {
     "type": "git",
