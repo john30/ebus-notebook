@@ -1,4 +1,5 @@
 import {createConnection} from 'net';
+import {basename, dirname} from 'path';
 import {createInterface} from 'readline';
 import * as vscode from 'vscode';
 import {executeConversion, type ShowOption} from './task.js';
@@ -130,7 +131,7 @@ export class Controller implements vscode.NotebookCellStatusBarItemProvider {
     if (cell.document.languageId==='typespec') {
       const disposables: vscode.Disposable[] = [];
       try {
-        ebusdInput = await executeConversion([cell.document.getText()], execution.token, this.showOption, disposables) || '';
+        ebusdInput = await executeConversion(dirname(cell.document.uri.fsPath), basename(cell.document.uri.fsPath), [cell.document.getText()], execution.token, this.showOption, disposables) || '';
         success = true;
       } catch (error) {
         execution.appendOutput(

@@ -1,11 +1,20 @@
 import {readFile, unlink, writeFile} from 'fs/promises';
+import {basename, extname, join} from 'path';
 import {tmpName} from 'tmp-promise';
 import * as vscode from 'vscode';
 
 export type ShowOption = 'terminal'|'task';
 
-export const executeConversion = async (input: string[], token?: vscode.CancellationToken, showOption?: ShowOption, disposables?: vscode.Disposable[]) => {
-  const inFile = await tmpName();
+export const executeConversion = async (
+  cwd: string|undefined, filename: string|undefined, input: string[],
+  token?: vscode.CancellationToken, showOption?: ShowOption, 
+  disposables?: vscode.Disposable[],
+): Promise<string> => {
+  const prefix = '_generatedMain_'+(0x1000000+Math.floor(Math.random()*0x1000000)).toString(16).substring(1)+'_';
+  let inFile = await tmpName({prefix});
+  if (cwd) {
+    inFile = join(cwd, basename(inFile)+'.tsp');
+  }
   const outFile = await tmpName();
   const enhancedInput = [...input];
   enhancedInput.find((line, idx) => {
@@ -33,6 +42,15 @@ export const executeConversion = async (input: string[], token?: vscode.Cancella
         return rej(failed+(output ? '\ncommand output:\n'+output:''));
       }
       if (output!==undefined) {
+        const match = new RegExp(prefix+'[^,]*');
+        let name = 'Main';
+        if (filename) {
+          filename = basename(filename, extname(filename));
+          if (filename) {
+            name = filename.substring(0, 1).toUpperCase()+filename.substring(1);
+          }
+        }
+        output = output.split('\n').map(line => line.replace(match, name)).join('\n');
         return res(output);
       }
       rej('no output produced');
@@ -60,7 +78,7 @@ export const executeConversion = async (input: string[], token?: vscode.Cancella
     executionInstance = await vscode.tasks.executeTask(task);
     return await outputPromise;
   }
-  const terminal = vscode.window.createTerminal({name: 'tsp2ebusd', hideFromUser: showOption!=='terminal'});
+  const terminal = vscode.window.createTerminal({cwd, name: 'tsp2ebusd', hideFromUser: showOption!=='terminal'});
   disposables?.push(terminal);
   const outputPromise = new Promise<string>((res, rej) => {
     token?.onCancellationRequested(() => {

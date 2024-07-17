@@ -1,3 +1,4 @@
+import {dirname} from 'path';
 import * as vscode from 'vscode';
 import {Controller, sendToEbusd} from './controller.js';
 import {Serializer} from './serializer.js';
@@ -51,10 +52,24 @@ export async function activate(context: vscode.ExtensionContext) {
     }
     const src = args?.length===1 ? `${args[0]}` : '';
     const disposables: vscode.Disposable[] = [];
+    let uri = vscode.window.activeTextEditor?.document.uri;
+    let cwd = uri ? dirname(uri.fsPath) : undefined;
+    if (!cwd || cwd === '.') {
+      uri = vscode.window.activeNotebookEditor?.notebook.uri;
+      cwd = uri ? dirname(uri.fsPath) : undefined;
+    }
+    if (!cwd || cwd === '.') {
+      uri = vscode.workspace.workspaceFile;
+      cwd = uri ? dirname(uri.fsPath) : undefined;
+    }
+    if (!cwd || cwd === '.') {
+      uri = vscode.workspace.workspaceFolders?.[0]?.uri;
+      cwd = uri?.fsPath;
+    }
     vscode.window.withProgress({location: vscode.ProgressLocation.Notification, title: 'Converting', cancellable: true}, async (progress, token): Promise<void> => {
       let output: string;
       try {
-        output = await executeConversion([src], token, undefined, disposables) || '';
+        output = await executeConversion(cwd, undefined, [src], token, undefined, disposables) || '';
         outputChannel.appendLine('conversion result:');
         outputChannel.show();
         outputChannel.appendLine(output);
@@ -75,14 +90,25 @@ export async function activate(context: vscode.ExtensionContext) {
         const name = test[test.length-1].toLowerCase();
         const namespaces = test.slice(0, test.length-1).map(n => n.toLowerCase()).filter(n=>n);
         let found = false;
+        let foundMain = '';
         const picked = lines.filter((line, index) => {
           if (index===0 || line.startsWith('#') || line.startsWith('*')) return true;
           if (found) return false;
           const parts = line.split(',').slice(1, 4); // type, circuit, level, name
-          found = parts[2]?.toLowerCase() === name
-          && namespaces.includes(parts[0].toLowerCase());
+          if (parts[2]?.toLowerCase() !== name) {
+            return false;
+          }
+          found = namespaces.includes(parts[0].toLowerCase());
+          if (!found && parts[0] === 'Main') {
+            foundMain = line;
+          }
           return found;
         });
+        if (!found && foundMain) {
+          // fallback added by executeConversion in absence of filename
+          picked.push(foundMain);
+          found = true;
+        }
         if (!found) {
           outputChannel.appendLine('model '+test.join('/')+' not found in conversion result');
           return;
