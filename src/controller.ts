@@ -30,7 +30,7 @@ export class Controller implements vscode.NotebookCellStatusBarItemProvider {
     this.controller.supportsExecutionOrder = true;
     this.controller.executeHandler = this.execute.bind(this);
     const updateConfig = () => {
-      const showOptionStr = vscode. workspace.getConfiguration('ebus-notebook.conversion').get('show');
+      const showOptionStr = vscode.workspace.getConfiguration('ebus-notebook.conversion').get('show');
       this.showOption = showOptionStr==='yes' ? 'terminal' : showOptionStr==='task' ? 'task' : undefined;
       const ebusdCfg = vscode.workspace.getConfiguration('ebus-notebook.ebusd');
       this.ebusdHostPort = ebusdCfg.has('host') ? [ebusdCfg.get('host')!, ebusdCfg.get('port')||8888] : undefined;
@@ -110,6 +110,10 @@ export class Controller implements vscode.NotebookCellStatusBarItemProvider {
       arguments: cell.outputs.find(o => o.items.some(i => i.mime==='text/csv'))?.items,
     };
     return upload ? [upload, toggleInput] : toggleInput;
+  }
+
+  get hideFromUser(): boolean {
+    return !this.showOption;
   }
 
   private async execute(

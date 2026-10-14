@@ -27,8 +27,16 @@ export const executeConversion = async (
   });
   await writeFile(inFile, enhancedInput.join('\n'));
   disposables?.push(vscode.Disposable.from({dispose: () => {
+    try {
     void unlink(inFile);
+    } catch (_) {
+      // ignore
+    }
+    try {
     void unlink(outFile);
+    } catch (_) {
+      // ignore
+    }
   }}));
   const resolveOutput = async (res: (value: string) => void, rej: (reason?: any) => void, dispose: vscode.Disposable, failed?: string) => {
     try {
@@ -78,7 +86,8 @@ export const executeConversion = async (
     executionInstance = await vscode.tasks.executeTask(task);
     return await outputPromise;
   }
-  const terminal = vscode.window.createTerminal({cwd, name: 'tsp2ebusd', hideFromUser: showOption!=='terminal'});
+  const hideFromUser = showOption!=='terminal';
+  const terminal = vscode.window.createTerminal({cwd, name: 'tsp2ebusd', hideFromUser});
   disposables?.push(terminal);
   const outputPromise = new Promise<string>((res, rej) => {
     token?.onCancellationRequested(() => {
@@ -92,6 +101,9 @@ export const executeConversion = async (
       await resolveOutput(res, rej, dispose, t.exitStatus?.code ? `exited with code ${t.exitStatus?.code}: ${t.exitStatus.reason}` : undefined);
     });
   });
+  if (!hideFromUser) {
+    terminal.show(true);
+  }
   terminal.sendText(conversionCmdLine(inFile, outFile));
   terminal.sendText('exit');
   return await outputPromise;

@@ -45,6 +45,10 @@ export async function activate(context: vscode.ExtensionContext) {
 	}));
   const controller = new Controller(context, outputChannel);
   const convertCmd = async (test: string[]|undefined, ...args: any[]): Promise<void> => {
+    outputChannel.appendLine('converting...');
+    if (!controller.hideFromUser) {
+      outputChannel.show();
+    }
     let needsInput = false;
     if (args.length>1 && args[0]==='-i') {
       needsInput = true;
@@ -71,7 +75,6 @@ export async function activate(context: vscode.ExtensionContext) {
       try {
         output = await executeConversion(cwd, undefined, [src], token, undefined, disposables) || '';
         outputChannel.appendLine('conversion result:');
-        outputChannel.show();
         outputChannel.appendLine(output);
       } catch (error) {
         outputChannel.append('conversion error:');
@@ -85,49 +88,51 @@ export async function activate(context: vscode.ExtensionContext) {
         return;
       }
       progress.report({message: 'conversion done'});
-      if (test?.length && output && controller.ebusdHostPort) {
-        const lines = output.split('\n');
-        const name = test[test.length-1].toLowerCase();
-        const namespaces = test.slice(0, test.length-1).map(n => n.toLowerCase()).filter(n=>n);
-        let found = false;
-        let foundMain = '';
-        const picked = lines.filter((line, index) => {
-          if (index===0 || line.startsWith('#') || line.startsWith('*')) return true;
-          if (found) return false;
-          const parts = line.split(',').slice(1, 4); // type, circuit, level, name
-          if (parts[2]?.toLowerCase() !== name) {
-            return false;
-          }
-          found = namespaces.includes(parts[0].toLowerCase());
-          if (!found && parts[0] === 'Main') {
-            foundMain = line;
-          }
-          return found;
-        });
-        if (!found && foundMain) {
-          // fallback added by executeConversion in absence of filename
-          picked.push(foundMain);
-          found = true;
+      if (!test?.length || !output || !controller.ebusdHostPort) {
+        return;
+      }
+      const lines = output.split('\n');
+      const name = test[test.length-1].toLowerCase();
+      const namespaces = test.slice(0, test.length-1).map(n => n.toLowerCase()).filter(n=>n);
+      let found = false;
+      let foundMain = '';
+      const picked = lines.filter((line, index) => {
+        if (index===0 || line.startsWith('#') || line.startsWith('*')) return true;
+        if (found) return false;
+        const parts = line.split(',').slice(1, 4); // type, circuit, level, name
+        if (parts[2]?.toLowerCase() !== name) {
+          return false;
         }
-        if (!found) {
-          outputChannel.appendLine('model '+test.join('/')+' not found in conversion result');
+        found = namespaces.includes(parts[0].toLowerCase());
+        if (!found && parts[0] === 'Main') {
+          foundMain = line;
+        }
+        return found;
+      });
+      if (!found && foundMain) {
+        // fallback added by executeConversion in absence of filename
+        picked.push(foundMain);
+        found = true;
+      }
+      if (!found) {
+        outputChannel.appendLine('model '+test.join('/')+' not found in conversion result');
+        return;
+      }
+      outputChannel.appendLine('ebusd result:');
+      try {
+        const executed = await sendToEbusd(picked, controller.ebusdHostPort, (...args) => {
+          outputChannel.appendLine(args.join(' '));
+        }, controller.readCmd, needsInput?token:undefined);
+        if (!executed) {
+          outputChannel.appendLine('aborted');
           return;
         }
-        outputChannel.appendLine('ebusd result:');
-        try {
-          const executed = await sendToEbusd(picked, controller.ebusdHostPort, (...args) => {
-            outputChannel.appendLine(args.join(' '));
-          }, controller.readCmd, needsInput?token:undefined);
-          if (!executed) {
-            outputChannel.appendLine('aborted');
-            return;
-          }
-          outputChannel.appendLine('done');
-        } catch (error) {
-          outputChannel.appendLine(
-            'error: '+(error instanceof Error ? error.toString() : `${error}`)
-          );
-        }
+        outputChannel.appendLine('done');
+      } catch (error) {
+        const e = error instanceof Error ? error.toString() : `${error}`;
+        outputChannel.appendLine('error: '+e);
+        outputChannel.show();
+        void vscode.window.showErrorMessage('Error saving to ebusd: '+e);
       }
     });
 	};
