@@ -43,16 +43,16 @@ export class Controller implements vscode.NotebookCellStatusBarItemProvider {
     this.disposables.push(vscode.workspace.onDidChangeConfiguration(e => e.affectsConfiguration('ebus-notebook') && updateConfig()));
     context.subscriptions.push(vscode.commands.registerCommand('ebus-notebook.uploadEbusd', async (...args: any[]) => {
       if (!args.length || args.some(arg => typeof arg !== 'object' || !arg.data || !arg.mime)) {
-        await vscode.window.showErrorMessage('Invalid arguments, this command is only useful for notebook cell output.');
+        void vscode.window.showErrorMessage('Invalid arguments, this command is only useful for notebook cell output.');
         return;
       }
       if (!this.ebusdHostPort) {
-        await vscode.window.showErrorMessage('ebusd host/port not defined, please check the settings.');
+        void vscode.window.showErrorMessage('ebusd host/port not defined, please check the settings.');
         return;
       }
       const lineBytes = args.find(i => i.mime==='text/csv')?.data;
       if (!lineBytes?.length) {
-        await vscode.window.showErrorMessage('Invalid content, this command is only useful for notebook cell output.');
+        void vscode.window.showErrorMessage('Invalid content, this command is only useful for notebook cell output.');
         return;
       }
       const lines = new TextDecoder().decode(lineBytes).split('\n');
@@ -64,12 +64,12 @@ export class Controller implements vscode.NotebookCellStatusBarItemProvider {
           }
         }, 'upload');
         if (error) {
-          await vscode.window.showErrorMessage('Error saving to ebusd: '+error);
+          void vscode.window.showErrorMessage('Error saving to ebusd: '+error);
         } else {
-          await vscode.window.showInformationMessage('Uploaded successfully.');
+          void vscode.window.showInformationMessage('Uploaded successfully.');
         }
       } catch (e) {
-        await vscode.window.showErrorMessage('Error saving to ebusd: '+e);
+        void vscode.window.showErrorMessage('Error saving to ebusd: '+e);
       }
     }));
     context.subscriptions.push(vscode.commands.registerCommand('ebus-notebook.uploadEbusdToggleInput', () => {
