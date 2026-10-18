@@ -1,10 +1,10 @@
 {
   "name": "ebus-notebook",
   "displayName": "ebus-notebook",
-  "description": "Notebook for eBUS activities using ebus-typespec and an optional ebusd instance.",
+  "description": "Notebook for eBUS activities using ebus-typespec and an optional ebusd/micro-ebusd instance.",
   "publisher": "ebusd",
   "icon": "images/icon.png",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -26,7 +26,7 @@
   ],
   "main": "./dist/extension.js",
   "engines": {
-    "vscode": "^1.100.0"
+    "vscode": "^1.140.0"
   },
   "activationEvents": [
     "onStartupFinished"
@@ -42,28 +42,36 @@
     "commands": [
       {
         "command": "ebus-notebook.createFile",
-        "title": "Create New eBUS TypeSpec file from Template"
+        "title": "Create New eBUS TypeSpec file from Template",
+        "category": "eBUS"
       },
       {
         "command": "ebus-notebook.createNotebook",
-        "title": "Create New eBUS Notebook"
+        "title": "Create New eBUS Notebook",
+        "category": "eBUS"
       },
       {
         "command": "ebus-notebook.convert",
-        "title": "Convert eBUS TypeSpec to ebusd CSV"
+        "title": "Convert eBUS TypeSpec to ebusd",
+        "category": "eBUS",
+        "enablement": "false"
       },
       {
         "command": "ebus-notebook.convertAndTest",
-        "title": "Convert eBUS TypeSpec and test on ebusd"
+        "title": "Convert eBUS TypeSpec to ebusd/micro-ebusd and test",
+        "category": "eBUS",
+        "enablement": "false"
       },
       {
         "command": "ebus-notebook.uploadEbusd",
-        "title": "Upload CSV to ebusd",
+        "title": "Upload conversion result to ebusd/micro-ebusd",
+        "category": "eBUS",
         "enablement": "false"
       },
       {
         "command": "ebus-notebook.uploadEbusdToggleInput",
-        "title": "Toggle query for user input on upload CSV to ebusd",
+        "title": "Toggle query for user input on upload to ebusd/micro-ebusd",
+        "category": "eBUS",
         "enablement": "false"
       }
     ],
@@ -92,39 +100,68 @@
             "yes",
             "task"
           ],
-          "description": "Whether to show the conversion process terminal or use a task instead of a terminal.",
+          "description": "Whether to show the conversion process output or use a task instead of a terminal.",
           "order": 1
         },
         "ebus-notebook.conversion.cmd": {
-          "title": "Conversion Command",
+          "title": "Conversion Command for ebusd",
           "scope": "window",
           "type": "string",
-          "default": "npm exec --package=@ebusd/ebus-typespec tsp2ebusd -- -o ${outFile} ${inFile}",
+          "default": "npm exec --package=@ebusd/ebus-typespec tsp2ebusd -- -o ${outFile} \"${inFile}\"",
           "markdownDescription": "The command to use for converting [TypeSpec to ebusd CSV](https://github.com/john30/ebus-typespec).",
           "order": 2
         },
-        "ebus-notebook.ebusd.host": {
-          "title": "ebusd REPL Host",
+        "ebus-notebook.conversion.micro-ebusd-cmd": {
+          "title": "Conversion Command for micro-ebusd",
           "scope": "window",
           "type": "string",
-          "markdownDescription": "The host name or IP address of [ebusd REPL](https://github.com/john30/ebusd/wiki/3.1.-TCP-client-commands) to connect to.",
+          "default": "npm exec --package=@ebusd/ebus-typespec tsp2ebusd -- -o ${outFile} -m ${target}${inline} \"${inFile}\"",
+          "markdownDescription": "The command to use for converting [TypeSpec to ebusd](https://github.com/john30/ebus-typespec) and uploading to micro-ebusd.",
           "order": 3
+        },
+        "ebus-notebook.ebusd.micro-ebusd-mode": {
+          "title": "micro-ebusd mode",
+          "scope": "window",
+          "type": "string",
+          "default": "no",
+          "enum": [
+            "no",
+            "yes",
+            "inline"
+          ],
+          "markdownDescription": "Whether the host is micro-ebusd (instead of ebusd) and if so, whether to use inline mode.",
+          "order": 4
+        },
+        "ebus-notebook.ebusd.host": {
+          "title": "ebusd/micro-ebusd Host",
+          "scope": "window",
+          "type": "string",
+          "markdownDescription": "The host name or IP address of [ebusd](https://github.com/john30/ebusd/wiki/3.1.-TCP-client-commands) or micro-ebusd to connect to (use \"https://<host-or-ip>\" for SSL).",
+          "order": 5
         },
         "ebus-notebook.ebusd.port": {
           "title": "ebusd REPL Port",
           "scope": "window",
           "type": "number",
           "default": 8888,
-          "markdownDescription": "The port number of [ebusd REPL](https://github.com/john30/ebusd/wiki/3.1.-TCP-client-commands) to connecto to..",
-          "order": 4
+          "markdownDescription": "The port number of [ebusd REPL](https://github.com/john30/ebusd/wiki/3.1.-TCP-client-commands) to connect to (irrelevant for micro-ebusd mode).",
+          "order": 6
         },
         "ebus-notebook.ebusd.read": {
           "title": "ebusd read Command",
           "scope": "window",
           "type": "string",
           "default": "read -V -V -def -def -i \"${input}\" \"${line}\"",
-          "markdownDescription": "The command to use for issuing a read of a generated definition. User input is asked for when convert+test command is issued with '-i' as first argument. See [read command](https://github.com/john30/ebusd/wiki/3.1.-TCP-client-commands#read).",
-          "order": 5
+          "markdownDescription": "The command to use for issuing a read of a generated definition on ebusd. User input is asked for when convert+test command is issued with '-i' as first argument. See [read command](https://github.com/john30/ebusd/wiki/3.1.-TCP-client-commands#read). Wildcards \"${input}\" and \"${line}\" are replaced with the actual input and conversion result line values.",
+          "order": 7
+        },
+        "ebus-notebook.ebusd.micro-ebusd-read": {
+          "title": "micro-ebusd read Command",
+          "scope": "window",
+          "type": "string",
+          "default": "read -v -i \"${input}\" -c \"${circuit}\" \"${name}\"",
+          "markdownDescription": "The command to use for issuing a read of a previously uploaded definition on micro-ebusd. User input is asked for when convert+test command is issued with '-i' as first argument. Wildcards \"${input}\", \"${circuit}\", and \"${name}\" are replaced with the actual input and conversion result values.",
+          "order": 8
         }
       }
     }
@@ -143,16 +180,16 @@
     "deploy": "vsce publish"
   },
   "devDependencies": {
-    "@types/node": "~22.15.21",
+    "@types/node": "latest",
     "@types/tmp": "^0.2.6",
-    "@types/vscode": "~1.100.0",
-    "esbuild": "^0.25.4",
-    "rimraf": "^6.0.1",
+    "@types/vscode": "~1.140.0",
+    "esbuild": "^0.28.2",
+    "rimraf": "^6.1.3",
     "tslib": "^2.8.1",
-    "typescript": "~5.8.3"
+    "typescript": "^6.0.0"
   },
   "dependencies": {
-    "tmp": "^0.2.3",
+    "tmp": "^0.2.7",
     "tmp-promise": "^3.0.3"
   }
 }

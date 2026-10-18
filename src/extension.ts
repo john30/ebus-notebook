@@ -1,6 +1,6 @@
-import {dirname} from 'path';
+import {basename, dirname} from 'path';
 import * as vscode from 'vscode';
-import {Controller, sendToEbusd} from './controller.js';
+import {Controller, filterEbusdLines, sendToEbusd} from './controller.js';
 import {Serializer} from './serializer.js';
 import {executeConversion} from './task.js';
 
@@ -70,10 +70,15 @@ export async function activate(context: vscode.ExtensionContext) {
       uri = vscode.workspace.workspaceFolders?.[0]?.uri;
       cwd = uri?.fsPath;
     }
-    vscode.window.withProgress({location: vscode.ProgressLocation.Notification, title: 'Converting', cancellable: true}, async (progress, token): Promise<void> => {
+    let filename = uri ? basename(uri.fsPath) : undefined;
+    if (filename && !filename.endsWith('.tsp')) {
+      filename = undefined;
+    }
+    return vscode.window.withProgress({location: vscode.ProgressLocation.Notification, title: 'Converting', cancellable: true}, async (progress, token): Promise<void> => {
       let output: string;
+      const logging: string[] = [];
       try {
-        output = await executeConversion(cwd, undefined, [src], token, undefined, disposables) || '';
+        output = await executeConversion(cwd, filename, [src], token, controller.showOption, disposables, logging) || '';
         outputChannel.appendLine('conversion result:');
         outputChannel.appendLine(output);
       } catch (error) {
@@ -81,9 +86,14 @@ export async function activate(context: vscode.ExtensionContext) {
         outputChannel.show();
         outputChannel.appendLine(`${error}`);
         progress.report({increment: 100});
-        void vscode.window.showErrorMessage('Conversion error: '+error);
+        const lastLine = logging.reduce((p, c) => c.length>=2 ? c : p, '');
+        void vscode.window.showErrorMessage('Conversion error: '+error+(lastLine ? '\n last output line: '+lastLine : ''));
         return;
       } finally {
+        if (logging.length) {
+          outputChannel.appendLine('conversion log:');
+          outputChannel.appendLine(logging.join('\n'));
+        }
         disposables.forEach(d => d.dispose());
       }
       if (token.isCancellationRequested) {
@@ -100,11 +110,11 @@ export async function activate(context: vscode.ExtensionContext) {
       const namespaces = test.slice(0, test.length-1).map(n => n.toLowerCase()).filter(n=>n);
       let found = false;
       let foundMain = '';
-      const picked = lines.filter((line, index) => {
+      const picked = filterEbusdLines(lines, true).filter((line, index) => {
         if (index===0 || line.startsWith('#') || line.startsWith('*')) return true;
         if (found) return false;
-        const parts = line.split(',').slice(1, 4); // type, circuit, level, name
-        if (parts[2]?.toLowerCase() !== name) {
+        const parts = line.split(',').slice(1, 3); // type, circuit, name => circuit, name
+        if (parts[1]?.toLowerCase() !== name) {
           return false;
         }
         found = namespaces.includes(parts[0].toLowerCase());
@@ -125,10 +135,14 @@ export async function activate(context: vscode.ExtensionContext) {
         void vscode.window.showErrorMessage('Conversion error: '+e);
         return;
       }
-      outputChannel.appendLine('ebusd result:');
+      const target = controller.ebusdHostPort[2] ? 'micro-ebusd' : 'ebusd';
+      outputChannel.appendLine(`${target} result:`);
       try {
+        let lastLine = '';
         const executed = await sendToEbusd(picked, controller.ebusdHostPort, (...args) => {
-          outputChannel.appendLine(args.join(' '));
+          const line = args.join(' ');
+          outputChannel.appendLine(line);
+          lastLine = line;
         }, controller.readCmd, needsInput?token:undefined);
         if (!executed) {
           outputChannel.appendLine('aborted');
@@ -136,13 +150,13 @@ export async function activate(context: vscode.ExtensionContext) {
         }
         outputChannel.appendLine('done');
         progress.report({increment: 100});
-        void vscode.window.showInformationMessage('Successfully sent to ebusd');
+        void vscode.window.showInformationMessage(`Successfully sent to ${target}${lastLine ? ':\n'+lastLine : ''}`);
       } catch (error) {
         const e = error instanceof Error ? error.toString() : `${error}`;
         outputChannel.appendLine('error: '+e);
         outputChannel.show();
         progress.report({increment: 100});
-        void vscode.window.showErrorMessage('Error sending to ebusd: '+e);
+        void vscode.window.showErrorMessage(`Error sending to ${target}: ${e}`);
       }
     });
 	};
@@ -168,7 +182,6 @@ class CodeActionProvider implements vscode.CodeActionProvider<vscode.CodeAction>
       const traverse = (syms: vscode.SymbolInformation[] | vscode.DocumentSymbol[], stack: Match=[]) => {
         for (const sym of syms) {
           let r: vscode.Range;
-          const isd = sym instanceof vscode.DocumentSymbol;
           if (sym instanceof vscode.SymbolInformation) {
             r = sym.location.range;
           } else {
@@ -182,27 +195,33 @@ class CodeActionProvider implements vscode.CodeActionProvider<vscode.CodeAction>
             }
           }
           if (hasChildren(sym)) {
-            traverse(sym.children, childStack)
+            traverse(sym.children, childStack);
           }
         }
       }
       traverse(syms);
     }
-    if (!match.length) {
-      return [];
-    }
     const allTxt = document.getText();
-    const modelTxt = document.getText(match[match.length-1].range);
-    const notebookModelAction = new vscode.CodeAction('Create eBUS Notebook from this model...', vscode.CodeActionKind.Empty);
-    notebookModelAction.command = {command: CMD_CREATE_NOTEBOOK, title: 'Create eBUS Notebook from model', arguments: [modelTxt]};
     const notebookAction = new vscode.CodeAction('Create eBUS Notebook from this file...', vscode.CodeActionKind.Empty);
     notebookAction.command = {command: CMD_CREATE_NOTEBOOK, title: 'Create eBUS Notebook from file', arguments: [allTxt]};
-    const convertTestAction = new vscode.CodeAction('Convert model to eBUS CSV and test...', vscode.CodeActionKind.Empty);
-    convertTestAction.command = {command: CMD_CONVERT_AND_TEST, title: 'Convert model to eBUS CSV and test', arguments: [match.map(m=>m.name), allTxt]};
-    const convertTestActionInput = new vscode.CodeAction('Convert model to eBUS CSV and test with user input...', vscode.CodeActionKind.Empty);
-    convertTestActionInput.command = {command: CMD_CONVERT_AND_TEST, title: 'Convert model to eBUS CSV and test with user input', arguments: [match.map(m=>m.name), '-i', allTxt]};
-    const convertAction = new vscode.CodeAction('Convert file to eBUS CSV...', vscode.CodeActionKind.Empty);
-    convertAction.command = {command: CMD_CONVERT, title: 'Convert to eBUS CSV', arguments: [allTxt]};
+    const convertAction = new vscode.CodeAction(`Convert file to ebusd...`, vscode.CodeActionKind.Empty);
+    convertAction.command = {command: CMD_CONVERT, title: `Convert to ebusd`, arguments: [allTxt]};
+    if (!match.length) {
+      return [
+        convertAction,
+        notebookAction,
+      ];
+    }
+    const modelTxt = document.getText(match[match.length-1].range);
+    const microEbusd = vscode.workspace.getConfiguration('ebus-notebook.ebusd').get('micro-ebusd-mode') as 'no'|'yes'|'inline' ||'no';
+    const isMicroEbusd = microEbusd && microEbusd!=='no';
+    const ebusdTxt = isMicroEbusd ? 'micro-ebusd' : 'ebusd';
+    const notebookModelAction = new vscode.CodeAction('Create eBUS Notebook from this model...', vscode.CodeActionKind.Empty);
+    notebookModelAction.command = {command: CMD_CREATE_NOTEBOOK, title: 'Create eBUS Notebook from model', arguments: [modelTxt]};
+    const convertTestAction = new vscode.CodeAction(`Convert model to ${ebusdTxt} and test...`, vscode.CodeActionKind.Empty);
+    convertTestAction.command = {command: CMD_CONVERT_AND_TEST, title: `Convert model to ${ebusdTxt} and test`, arguments: [match.map(m=>m.name), allTxt]};
+    const convertTestActionInput = new vscode.CodeAction(`Convert model to ${ebusdTxt} and test with user input...`, vscode.CodeActionKind.Empty);
+    convertTestActionInput.command = {command: CMD_CONVERT_AND_TEST, title: `Convert model to ${ebusdTxt} and test with user input`, arguments: [match.map(m=>m.name), '-i', allTxt]};
     return [
       convertTestAction,
       convertTestActionInput,
