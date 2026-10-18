@@ -80,6 +80,8 @@ export async function activate(context: vscode.ExtensionContext) {
         outputChannel.append('conversion error:');
         outputChannel.show();
         outputChannel.appendLine(`${error}`);
+        progress.report({increment: 100});
+        void vscode.window.showErrorMessage('Conversion error: '+error);
         return;
       } finally {
         disposables.forEach(d => d.dispose());
@@ -87,10 +89,12 @@ export async function activate(context: vscode.ExtensionContext) {
       if (token.isCancellationRequested) {
         return;
       }
-      progress.report({message: 'conversion done'});
       if (!test?.length || !output || !controller.ebusdHostPort) {
+        progress.report({increment: 100});
+        void vscode.window.showInformationMessage('Conversion done');
         return;
       }
+      progress.report({message: 'conversion done', increment: 50});
       const lines = output.split('\n');
       const name = test[test.length-1].toLowerCase();
       const namespaces = test.slice(0, test.length-1).map(n => n.toLowerCase()).filter(n=>n);
@@ -115,7 +119,10 @@ export async function activate(context: vscode.ExtensionContext) {
         found = true;
       }
       if (!found) {
-        outputChannel.appendLine('model '+test.join('/')+' not found in conversion result');
+        const e = 'model '+test.join('/')+' not found in conversion result';
+        outputChannel.appendLine('error: '+e);
+        progress.report({increment: 100});
+        void vscode.window.showErrorMessage('Conversion error: '+e);
         return;
       }
       outputChannel.appendLine('ebusd result:');
@@ -128,11 +135,14 @@ export async function activate(context: vscode.ExtensionContext) {
           return;
         }
         outputChannel.appendLine('done');
+        progress.report({increment: 100});
+        void vscode.window.showInformationMessage('Successfully sent to ebusd');
       } catch (error) {
         const e = error instanceof Error ? error.toString() : `${error}`;
         outputChannel.appendLine('error: '+e);
         outputChannel.show();
-        void vscode.window.showErrorMessage('Error saving to ebusd: '+e);
+        progress.report({increment: 100});
+        void vscode.window.showErrorMessage('Error sending to ebusd: '+e);
       }
     });
 	};
